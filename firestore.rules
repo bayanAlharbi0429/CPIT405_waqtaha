@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Existing document belongs to the signed-in user
+    function ownsExisting() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // New or updated document is written with the signed-in user as owner
+    function writesAsOwner() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // users/{uid}: each user can only read and write their own profile document
+    match /users/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    // activityProfiles/{uid}_{activity}: custom weights, one document per user and activity.
+    // Ownership is checked from the document id, so reading a document that does
+    // not exist yet (a new user) is allowed too.
+    match /activityProfiles/{docId} {
+      allow read, delete: if signedIn() && docId.matches(request.auth.uid + '_.*');
+      allow create, update: if signedIn()
+        && writesAsOwner()
+        && request.resource.data.activity in ['running', 'photography', 'beach']
+        && docId == request.auth.uid + '_' + request.resource.data.activity;
+    }
+
+    // trips: every trip has a userId field
+    match /trips/{tripId} {
+      allow read, delete: if ownsExisting();
+      allow create: if writesAsOwner();
+      allow update: if ownsExisting() && writesAsOwner();
+    }
+
+    // tripItems: every item has a userId field
+    match /tripItems/{itemId} {
+      allow read, delete: if ownsExisting();
+      allow create: if writesAsOwner();
+      allow update: if ownsExisting() && writesAsOwner();
+    }
+
+    // Everything else is blocked
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
