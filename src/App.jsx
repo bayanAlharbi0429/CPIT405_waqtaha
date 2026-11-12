@@ -2,6 +2,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -26,13 +27,15 @@ export default function App() {
       <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
       <Route path="/register" element={<PublicOnly><Register /></PublicOnly>} />
 
-      {/* Protected */}
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
-      <Route path="/results" element={<ProtectedRoute><Results /></ProtectedRoute>} />
-      <Route path="/trips" element={<ProtectedRoute><Trips /></ProtectedRoute>} />
-      <Route path="/trips/:id" element={<ProtectedRoute><TripDetails /></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      {/* Protected: all of these share the navbar through Layout */}
+      <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/explore" element={<Explore />} />
+        <Route path="/results" element={<Results />} />
+        <Route path="/trips" element={<Trips />} />
+        <Route path="/trips/:id" element={<TripDetails />} />
+        <Route path="/profile" element={<Profile />} />
+      </Route>
     </Routes>
   );
 }
