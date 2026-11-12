@@ -20,6 +20,7 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [, setVersion] = useState(0);
 
   // Create a new account, then save the user's data in Firestore
   async function register(name, email, password) {
@@ -41,6 +42,11 @@ export function AuthProvider({ children }) {
     return signOut(auth);
   }
 
+  // Re-render consumers after the profile (like the display name) changes
+  function refreshUser() {
+    setVersion((v) => v + 1);
+  }
+
   // Firebase tells us when the user logs in or out (this is the session)
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -50,8 +56,8 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  const value = { currentUser, register, login, logout };
-
+  const value = { currentUser, register, login, logout, refreshUser };
+  
   // Wait until Firebase finishes checking before showing the app
   return (
     <AuthContext.Provider value={value}>
