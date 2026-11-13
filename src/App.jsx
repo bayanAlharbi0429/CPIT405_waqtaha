@@ -12,6 +12,7 @@ import Results from "./pages/Results";
 import Trips from "./pages/Trips";
 import TripDetails from "./pages/TripDetails";
 import Profile from "./pages/Profile";
+import NotFound from "./pages/NotFound";
 
 // Logged-in users should not see login/register pages
 function PublicOnly({ children }) {
@@ -36,6 +37,8 @@ export default function App() {
         <Route path="/trips/:id" element={<TripDetails />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
+            {/* Any other address */}
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
