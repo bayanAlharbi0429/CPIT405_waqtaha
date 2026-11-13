@@ -4,7 +4,7 @@
 
 Waqtaha is a React web app that turns raw weather numbers into a decision. Pick a destination and an activity, and the app scores every hour of the forecast from 0 to 100, then shows the best times.
 
-- Live demo: _add the Vercel link here_
+- Live demo: https://cpit-405-waqtaha.vercel.app
 - Video demo: _add the link here_
 
 ## What it does
