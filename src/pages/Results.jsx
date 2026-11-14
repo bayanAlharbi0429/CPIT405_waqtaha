@@ -9,16 +9,22 @@ import { mockDestination } from "../mocks/mockData";
 
 import HourlyChart from "../components/HourlyChart";
 import TopTimes from "../components/TopTimes";
+import SaveToTrip from "../components/SaveToTrip";
 
-// Display the local date and time of the destination.
+// Format the destination's local date and time.
 function formatHour(value) {
   if (!value?.includes("T")) {
     return { date: value || "", time: "" };
   }
 
   const [datePart, timePart] = value.split("T");
-  const [year, month, day] = datePart.split("-").map(Number);
-  const [hour, minute] = timePart.split(":").map(Number);
+  const [year, month, day] = datePart
+    .split("-")
+    .map(Number);
+
+  const [hour, minute] = timePart
+    .split(":")
+    .map(Number);
 
   const date = new Date(
     Date.UTC(year, month - 1, day)
@@ -31,7 +37,9 @@ function formatHour(value) {
 
   const time = `${hour % 12 || 12}:${String(
     minute
-  ).padStart(2, "0")} ${hour >= 12 ? "PM" : "AM"}`;
+  ).padStart(2, "0")} ${
+    hour >= 12 ? "PM" : "AM"
+  }`;
 
   return { date, time };
 }
@@ -51,20 +59,22 @@ export default function Results() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // User controls
+  // User filters
   const [minimumScore, setMinimumScore] = useState(50);
   const [sortBy, setSortBy] = useState("score");
 
+  // Load weather data and calculate scores.
   useEffect(() => {
     async function loadResults() {
       try {
         setLoading(true);
         setError("");
 
-        const { hourly, sunTimes } = await getForecast(
-          destination.lat,
-          destination.lon
-        );
+        const { hourly, sunTimes } =
+          await getForecast(
+            destination.lat,
+            destination.lon
+          );
 
         const results = scoreHours(
           hourly,
@@ -93,24 +103,26 @@ export default function Results() {
     activity,
   ]);
 
-  // Keep only hours that meet the minimum score.
+  // Filter hours by the selected minimum score.
   const filteredHours = scored.filter(
     (hour) =>
       Number.isFinite(hour.score) &&
       hour.score >= minimumScore
   );
 
-  // Sort without modifying the original results.
-  const sortedHours = [...filteredHours].sort((a, b) => {
-    if (sortBy === "score") {
-      return (
-        b.score - a.score ||
-        a.time.localeCompare(b.time)
-      );
-    }
+  // Sort the filtered hours.
+  const sortedHours = [...filteredHours].sort(
+    (a, b) => {
+      if (sortBy === "score") {
+        return (
+          b.score - a.score ||
+          a.time.localeCompare(b.time)
+        );
+      }
 
-    return a.time.localeCompare(b.time);
-  });
+      return a.time.localeCompare(b.time);
+    }
+  );
 
   return (
     <div className="auth-page">
@@ -123,6 +135,7 @@ export default function Results() {
           padding: "32px",
         }}
       >
+        {/* Page heading */}
         <div style={{ marginBottom: 28 }}>
           <span
             style={{
@@ -160,6 +173,7 @@ export default function Results() {
           </p>
         </div>
 
+        {/* Loading state */}
         {loading && (
           <div
             role="status"
@@ -173,6 +187,7 @@ export default function Results() {
           </div>
         )}
 
+        {/* Error state */}
         {!loading && error && (
           <div
             role="alert"
@@ -187,11 +202,13 @@ export default function Results() {
           </div>
         )}
 
+        {/* Results content */}
         {!loading && !error && (
           <>
+            {/* Hourly chart */}
             <HourlyChart hours={scored} />
 
-            {/* Minimum Score Filter */}
+            {/* Minimum score filter */}
             <section
               style={{
                 marginTop: 30,
@@ -290,15 +307,15 @@ export default function Results() {
                   fontWeight: 600,
                 }}
               >
-                ✨ {filteredHours.length} matching hours
-                found!
+                ✨ {filteredHours.length} matching
+                hours found!
               </p>
             </section>
 
-            {/* Top 3 Times */}
+            {/* Best 3 times */}
             <TopTimes hours={filteredHours} />
 
-            {/* All Matching Hours */}
+            {/* All matching hours */}
             <section style={{ marginTop: 36 }}>
               <h2 style={{ marginBottom: 8 }}>
                 All Matching Hours 🕒
@@ -311,11 +328,11 @@ export default function Results() {
                   marginBottom: 20,
                 }}
               >
-                Explore all hours that meet your
-                minimum score.
+                Explore suitable times and add
+                your favorites to a trip!
               </p>
 
-              {/* Sorting Control */}
+              {/* Sorting */}
               <div
                 style={{
                   padding: 18,
@@ -386,8 +403,9 @@ export default function Results() {
                     gridTemplateColumns:
                       "repeat(auto-fit, minmax(190px, 1fr))",
                     gap: 12,
-                    maxHeight: 420,
+                    maxHeight: 500,
                     overflowY: "auto",
+                    paddingRight: 5,
                   }}
                 >
                   {sortedHours.map((hour) => {
@@ -450,6 +468,13 @@ export default function Results() {
                             ⚠️ {hour.reason}
                           </p>
                         )}
+
+                        {/* Save selected hour to Firestore */}
+                        <SaveToTrip
+                          hour={hour}
+                          destination={destination}
+                          activityKey={activityKey}
+                        />
                       </article>
                     );
                   })}
