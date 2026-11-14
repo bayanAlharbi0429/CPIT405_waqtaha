@@ -2,7 +2,11 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
+import { useAuth } from "../context/AuthContext";
+
 import { getForecast } from "../services/weatherApi";
+import { getEffectiveWeights } from "../services/profileApi";
+
 import { scoreHours } from "../utils/scoring";
 import { ACTIVITIES } from "../utils/activities";
 import { mockDestination } from "../mocks/mockData";
@@ -18,6 +22,7 @@ function formatHour(value) {
   }
 
   const [datePart, timePart] = value.split("T");
+
   const [year, month, day] = datePart
     .split("-")
     .map(Number);
@@ -47,6 +52,12 @@ function formatHour(value) {
 export default function Results() {
   const location = useLocation();
 
+  // Get the currently signed-in user.
+  const { currentUser } = useAuth();
+
+  const userId = currentUser?.uid;
+
+  // Read selected destination and activity.
   const destination =
     location.state?.destination || mockDestination;
 
@@ -55,55 +66,111 @@ export default function Results() {
 
   const activity = ACTIVITIES[activityKey];
 
+  // Results states.
   const [scored, setScored] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // User filters
+  // User filters.
   const [minimumScore, setMinimumScore] = useState(50);
   const [sortBy, setSortBy] = useState("score");
 
-  // Load weather data and calculate scores.
+  // Track which weights were used.
+  const [weightsSource, setWeightsSource] =
+    useState("");
+
   useEffect(() => {
+    let active = true;
+
     async function loadResults() {
       try {
         setLoading(true);
         setError("");
 
+        if (!userId) {
+          throw new Error(
+            "Please sign in to view your results."
+          );
+        }
+
+        if (!activity) {
+          throw new Error("Invalid activity selected.");
+        }
+
+        // 1. Load weather data.
         const { hourly, sunTimes } =
           await getForecast(
             destination.lat,
             destination.lon
           );
 
+        // 2. Load the user's effective weights.
+        // Saved custom weights are used when available.
+        // Otherwise, the activity defaults are used.
+        const weights = await getEffectiveWeights(
+          userId,
+          activityKey
+        );
+
+        if (!active) return;
+
+        // 3. Check whether custom weights were found.
+        const defaultWeights = activity.weights;
+
+        const isCustomized = Object.keys(
+          defaultWeights
+        ).some(
+          (key) =>
+            weights[key] !== defaultWeights[key]
+        );
+
+        setWeightsSource(
+          isCustomized ? "custom" : "default"
+        );
+
+        // 4. Calculate suitability scores.
         const results = scoreHours(
           hourly,
           activityKey,
-          activity.weights,
+          weights,
           sunTimes
         );
 
+        if (!active) return;
+
+        // 5. Display updated results.
         setScored(results);
+
       } catch (err) {
         console.error("Results loading error:", err);
 
-        setError(
-          "Could not load the forecast. Please try again."
-        );
+        if (active) {
+          setError(
+            "Could not load your weather results or " +
+            "profile preferences. Please try again."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     loadResults();
+
+    return () => {
+      active = false;
+    };
   }, [
     destination.lat,
     destination.lon,
     activityKey,
     activity,
+    userId,
   ]);
 
-  // Filter hours by the selected minimum score.
+  // Filter results using the minimum score.
   const filteredHours = scored.filter(
     (hour) =>
       Number.isFinite(hour.score) &&
@@ -169,8 +236,32 @@ export default function Results() {
               margin: 0,
             }}
           >
-            📍 {destination.name} · {activity.label}
+            📍 {destination.name} · {activity?.label || activityKey}
           </p>
+
+          {/* Weight preference indicator */}
+          {!loading && !error && (
+            <div
+              style={{
+                display: "inline-block",
+                marginTop: 17,
+                padding: "9px 15px",
+                borderRadius: 30,
+                background:
+                  weightsSource === "custom"
+                    ? "#34394c"
+                    : "#3a3445",
+                border: "1px solid #60546c",
+                color: "#f7c5d6",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              {weightsSource === "custom"
+                ? "🎯 Your Custom Preferences"
+                : "🌤️ Default Activity Preferences"}
+            </div>
+          )}
         </div>
 
         {/* Loading state */}
@@ -312,7 +403,7 @@ export default function Results() {
               </p>
             </section>
 
-            {/* Best 3 times */}
+            {/* Top 3 best times */}
             <TopTimes hours={filteredHours} />
 
             {/* All matching hours */}
@@ -332,7 +423,7 @@ export default function Results() {
                 your favorites to a trip!
               </p>
 
-              {/* Sorting */}
+              {/* Sorting control */}
               <div
                 style={{
                   padding: 18,
@@ -469,7 +560,7 @@ export default function Results() {
                           </p>
                         )}
 
-                        {/* Save selected hour to Firestore */}
+                        {/* Save selected hour to a trip */}
                         <SaveToTrip
                           hour={hour}
                           destination={destination}
