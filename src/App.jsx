@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Explore from "./pages/Explore";
+import Tent from "./pages/Tent";
 import Results from "./pages/Results";
 import Trips from "./pages/Trips";
 import TripDetails from "./pages/TripDetails";
@@ -32,12 +33,14 @@ export default function App() {
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/explore" element={<Explore />} />
+        <Route path="/tent" element={<Tent />} />
         <Route path="/results" element={<Results />} />
         <Route path="/trips" element={<Trips />} />
         <Route path="/trips/:id" element={<TripDetails />} />
         <Route path="/profile" element={<Profile />} />
       </Route>
-            {/* Any other address */}
+
+      {/* Any other address */}
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
