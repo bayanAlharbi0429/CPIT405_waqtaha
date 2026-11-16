@@ -28,7 +28,7 @@ service cloud.firestore {
       allow read, delete: if signedIn() && docId.matches(request.auth.uid + '_.*');
       allow create, update: if signedIn()
         && writesAsOwner()
-        && request.resource.data.activity in ['running', 'photography', 'beach']
+        && request.resource.data.activity in ['running', 'photography', 'beach', 'sportsTent']
         && docId == request.auth.uid + '_' + request.resource.data.activity;
     }
 

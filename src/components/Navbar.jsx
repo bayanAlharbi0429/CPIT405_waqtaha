@@ -37,6 +37,7 @@ export default function Navbar() {
         <nav className={`navbar-links ${open ? "is-open" : ""}`}>
           <NavLink to="/dashboard" onClick={close}>Dashboard</NavLink>
           <NavLink to="/explore" onClick={close}>Explore</NavLink>
+          <NavLink to="/tent" onClick={close}>Sports Tent</NavLink>
           <NavLink to="/trips" onClick={close}>My trips</NavLink>
           <NavLink to="/profile" onClick={close}>Profile</NavLink>
           <span className="navbar-user">{currentUser?.displayName}</span>
