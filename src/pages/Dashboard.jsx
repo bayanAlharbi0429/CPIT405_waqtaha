@@ -5,6 +5,7 @@ import TiltCard from "../components/TiltCard";
 
 const ITEMS = [
   { to: "/explore", icon: "🧭", title: "Explore", text: "Search a destination and find the best hours for your activity." },
+  { to: "/tent", icon: "⛺", title: "Sports Tent", text: "Find the most comfortable time for a campus break." },
   { to: "/trips", icon: "🗺️", title: "My trips", text: "View and edit your saved trip plans." },
   { to: "/profile", icon: "🎚️", title: "Profile", text: "Set how much each weather factor matters to you." },
 ];

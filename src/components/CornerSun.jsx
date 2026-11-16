@@ -9,6 +9,7 @@ import { MOOD_MESSAGES } from "../utils/weightsHelpers";
 const MESSAGES = {
   "/dashboard": "Let's make your day a happy one.",
   "/explore": "Tell me where, and I'll find your sunny hours.",
+  "/tent": "Take a breath. You deserve a short break.",
   "/results": "Green hours are your best bet. Enjoy!",
   "/trips": "A good plan makes the day lighter.",
   "/profile": "Tell me what you love, I'll plan around it.",
