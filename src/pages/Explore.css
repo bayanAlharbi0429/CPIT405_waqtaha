@@ -1,0 +1,67 @@
+/* src/pages/Explore.css
+   Only the pieces the shared classes in index.css do not cover.
+   Colors come from the shared CSS variables so the dark theme stays consistent.
+   Base `button` is a full-width gradient button, so we reset it for choices/chips. */
+
+.explore-search { display: flex; gap: 8px; align-items: stretch; }
+.explore-search input { flex: 1; min-width: 0; }
+.explore-search button { width: auto; margin-top: 0; }
+
+.explore-matches,
+.explore-activities {
+  list-style: none;
+  padding: 0;
+  margin: 14px 0 0;
+  display: grid;
+  gap: 10px;
+}
+
+/* City results and activity cards */
+.choice {
+  width: 100%;
+  margin-top: 0;
+  justify-content: flex-start;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.choice span { color: var(--muted); font-size: 14px; font-weight: 400; }
+.choice.selected { border-color: var(--teal); background: rgba(45, 212, 191, 0.14); }
+
+/* Filter chips and the campus shortcut */
+.explore-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  width: auto;
+  margin-top: 0;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--surface-strong);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.chip.selected { background: var(--teal); color: #052e2a; border-color: var(--teal); }
+.campus-shortcut { margin-top: 12px; }
+
+@media (min-width: 640px) {
+  .explore-activities { grid-template-columns: repeat(2, 1fr); }
+  .explore-continue { width: auto; }
+}
+
+/* Hide the label visually but keep it for screen readers */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
