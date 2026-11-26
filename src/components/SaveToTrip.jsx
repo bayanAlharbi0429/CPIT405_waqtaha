@@ -18,6 +18,7 @@ export default function SaveToTrip({
   const [open, setOpen] = useState(false);
   const [trips, setTrips] = useState([]);
   const [selectedTrip, setSelectedTrip] = useState("");
+  const [note, setNote] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -100,10 +101,12 @@ export default function SaveToTrip({
           activity: activityKey,
           chosenTime: hour.time,
           expectedScore: hour.score,
+          note: note.trim(),
         }
       );
 
       setSuccess("Activity added to your trip!");
+      setNote("");
       setOpen(false);
     } catch (err) {
       setError(
@@ -227,6 +230,27 @@ export default function SaveToTrip({
                     </option>
                   ))}
                 </select>
+
+                <label htmlFor={`note-${hour.time}`} style={{ display: "block", marginBottom: 12 }}>
+                  Activity note (optional, up to 140 characters)
+                  <textarea
+                    id={`note-${hour.time}`}
+                    value={note}
+                    maxLength={140}
+                    rows={2}
+                    placeholder={activityKey === "sportsTent" ? "e.g. Painting corner" : "e.g. Light walk"}
+                    onChange={(event) => setNote(event.target.value)}
+                    style={{
+                      width: "100%", marginTop: 8, padding: 10,
+                      borderRadius: 9, background: "#302c40",
+                      border: "1px solid #65546c", color: "#fff",
+                      font: "inherit", resize: "vertical", boxSizing: "border-box",
+                    }}
+                  />
+                  <small style={{ display: "block", textAlign: "right", color: "#b8b3ca" }}>
+                    {note.length}/140
+                  </small>
+                </label>
 
                 <button
                   type="button"

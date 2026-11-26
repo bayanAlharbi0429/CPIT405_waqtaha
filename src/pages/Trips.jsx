@@ -1,458 +1,293 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
-import { mockDestination } from "../mocks/mockData";
-import {
-  createTrip,
-  getTrips,
-} from "../services/tripsApi";
+import { KAU_CAMPUS } from "../utils/campusData";
+import { searchDestinations } from "../services/weatherApi";
+import { createTrip, getTrips } from "../services/tripsApi";
 
+// Campus coordinates and schedule live in campusData.js, not in this page.
 const initialForm = {
-  name: "",
+  name: "My week at KAU",
   startDate: "",
   endDate: "",
 };
 
+function sameCampus(destination) {
+  return (
+    Math.abs(Number(destination?.lat) - KAU_CAMPUS.lat) < 0.001 &&
+    Math.abs(Number(destination?.lon) - KAU_CAMPUS.lon) < 0.001
+  );
+}
+
+function displayDate(value) {
+  if (!value) return "—";
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).toLocaleDateString(
+    "en-US",
+    { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }
+  );
+}
+
+const fieldStyle = {
+  width: "100%",
+  marginTop: 8,
+  boxSizing: "border-box",
+  colorScheme: "dark",
+};
+
 export default function Trips() {
   const { currentUser } = useAuth();
+  const userId = currentUser?.uid;
 
   const [trips, setTrips] = useState([]);
   const [form, setForm] = useState(initialForm);
+  const [destination, setDestination] = useState(KAU_CAMPUS);
+  const [cityQuery, setCityQuery] = useState("");
+  const [matches, setMatches] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [searchError, setSearchError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Load saved trips from Firestore.
   useEffect(() => {
     let active = true;
-
     async function loadTrips() {
       try {
-        const data = await getTrips(currentUser.uid);
-
-        if (active) {
-          setTrips(data);
-        }
+        setLoading(true);
+        const data = await getTrips(userId);
+        if (active) setTrips(data);
       } catch (err) {
-        if (active) {
-          setError(
-            err.message || "Could not load your trips."
-          );
-        }
+        if (active) setError(err.message || "Could not load your trips.");
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
+    if (userId) loadTrips();
+    return () => { active = false; };
+  }, [userId]);
 
-    loadTrips();
-
-    return () => {
-      active = false;
-    };
-  }, [currentUser.uid]);
-
-  function handleInput(event) {
-    const { name, value } = event.target;
-
+  function selectCampus() {
+    setDestination(KAU_CAMPUS);
+    setMatches([]);
+    setSearchError("");
     setForm((previous) => ({
       ...previous,
-      [name]: value,
+      name:
+        !previous.name.trim() || previous.name === "My week at KAU"
+          ? "My week at KAU"
+          : previous.name,
     }));
   }
 
-  // Create a new trip in Firestore.
-  async function handleCreate(event) {
-    event.preventDefault();
+  function selectCity(place) {
+    setDestination(place);
+    setMatches([]);
+    setSearchError("");
+    setForm((previous) => ({
+      ...previous,
+      // Remove only the auto-suggested campus title, not a custom one.
+      name: previous.name === "My week at KAU" ? "" : previous.name,
+    }));
+  }
 
-    setError("");
+  async function handleSearch(event) {
+    event.preventDefault();
+    setSearchError("");
+    setMatches([]);
     setSuccess("");
 
+    if (cityQuery.trim().length < 2) {
+      setSearchError("Please enter at least 2 letters.");
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const found = await searchDestinations(cityQuery);
+      setMatches(found);
+    } catch (err) {
+      setSearchError(err.message || "Could not search for this city.");
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  async function handleCreate(event) {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    if (!userId) {
+      setError("Please sign in first.");
+      return;
+    }
     if (!form.name.trim()) {
       setError("Please enter a trip name.");
       return;
     }
-
-    if (!form.startDate || !form.endDate) {
-      setError("Please select your trip dates.");
+    if (!destination) {
+      setError("Please choose a destination.");
       return;
     }
-
-    if (form.startDate > form.endDate) {
-      setError(
-        "The end date cannot be before the start date."
-      );
+    if (!form.startDate || !form.endDate || form.startDate > form.endDate) {
+      setError("Please choose valid start and end dates.");
       return;
     }
 
     setSaving(true);
-
     try {
-      const tripData = {
+      await createTrip(userId, {
         name: form.name.trim(),
-        destination: mockDestination,
+        destination,
         startDate: form.startDate,
         endDate: form.endDate,
-      };
-
-      await createTrip(
-        currentUser.uid,
-        tripData
-      );
-
-      // Refresh the saved trips list.
-      const updatedTrips = await getTrips(
-        currentUser.uid
-      );
-
-      setTrips(updatedTrips);
+      });
+      setTrips(await getTrips(userId));
       setForm(initialForm);
-
-      setSuccess(
-        "Your trip was created successfully!"
-      );
+      setDestination(KAU_CAMPUS);
+      setCityQuery("");
+      setMatches([]);
+      setSuccess("Your trip was created successfully!");
     } catch (err) {
-      console.error("Trip creation error:", err);
-
-      setError(
-        err.message || "Could not create your trip."
-      );
+      setError(err.message || "Could not create your trip.");
     } finally {
       setSaving(false);
     }
   }
 
-  const panelStyle = {
-    background:
-      "linear-gradient(145deg, #30283c, #242d3c)",
-    border: "1px solid #56465e",
-    borderRadius: 22,
-    padding: 24,
-  };
-
-  const inputStyle = {
-    width: "100%",
-    marginTop: 8,
-    padding: 14,
-    borderRadius: 12,
-    background: "#222433",
-    border: "1px solid #64546b",
-    color: "#fff",
-  };
-
   return (
-    <div
-      className="page"
-      style={{
-        maxWidth: 1000,
-        margin: "0 auto",
-        padding: "40px 20px 80px",
-      }}
-    >
-      {/* Page heading */}
-      <header style={{ marginBottom: 32 }}>
-        <span
-          style={{
-            display: "inline-block",
-            background: "#443243",
-            color: "#ffb4c9",
-            padding: "8px 15px",
-            borderRadius: 30,
-            fontSize: 12,
-            fontWeight: 700,
-            marginBottom: 15,
-          }}
-        >
-          ✨ YOUR ADVENTURES
-        </span>
-
-        <h1
-          style={{
-            fontSize: 38,
-            margin: "0 0 12px",
-          }}
-        >
-          My Trips
-        </h1>
-
-        <p
-          style={{
-            color: "#c7bdd0",
-            fontSize: 16,
-          }}
-        >
-          Every great adventure starts with a plan!
+    <main className="page">
+      <header style={{ marginBottom: 28 }}>
+        <span className="tag">✨ YOUR ADVENTURES</span>
+        <h1 style={{ marginTop: 12 }}>My <span className="marker">Trips</span></h1>
+        <p className="tagline">Less stress, more sunshine.</p>
+        <p className="auth-sub" style={{ marginTop: 10 }}>
+          Plan your campus breaks or your favorite outdoor activities.
         </p>
       </header>
 
-      {/* Create Trip Form */}
-      <section style={panelStyle}>
-        <h2
-          style={{
-            fontSize: 26,
-            margin: "0 0 8px",
-          }}
-        >
-          ✨ Plan a New Trip
-        </h2>
+      <section className="glass section" aria-labelledby="new-trip-title">
+        <h2 id="new-trip-title">✨ Plan a New Trip</h2>
+        <p className="section-sub">Choose KAU Campus or search for another city.</p>
 
-        <p
-          style={{
-            color: "#b8b3ca",
-            fontSize: 14,
-            marginBottom: 25,
-          }}
-        >
-          Give your adventure a name and choose
-          your travel dates.
-        </p>
+        {error && <p className="msg msg-error" role="alert">⚠ {error}</p>}
+        {success && <p className="msg msg-ok" role="status">✓ {success}</p>}
 
-        {error && (
-          <p
-            role="alert"
-            style={{
-              background: "#512d3b",
-              color: "#ffd2da",
-              padding: 15,
-              borderRadius: 12,
-            }}
+        <div style={{ marginBottom: 22 }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={selectCampus}
+            aria-pressed={sameCampus(destination)}
           >
-            ⚠️ {error}
+            ⛺ Use KAU Campus
+          </button>
+          <form onSubmit={handleSearch} style={{ marginTop: 14 }}>
+            <label htmlFor="trip-city-query">Search another city</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+              <input
+                id="trip-city-query"
+                value={cityQuery}
+                onChange={(event) => setCityQuery(event.target.value)}
+                placeholder="e.g. Jeddah or Makkah"
+                style={{ flex: "1 1 200px", minWidth: 0 }}
+              />
+              <button className="btn" type="submit" disabled={searching}>
+                {searching ? "Searching..." : "Search"}
+              </button>
+            </div>
+          </form>
+          {searchError && <p className="msg msg-error" role="alert">{searchError}</p>}
+          {matches.length > 0 && (
+            <div role="group" aria-label="Search results" style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              {matches.map((place) => (
+                <button
+                  key={`${place.lat}-${place.lon}`}
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={() => selectCity(place)}
+                >
+                  📍 {place.name}{place.country ? `, ${place.country}` : ""}
+                </button>
+              ))}
+            </div>
+          )}
+          <p role="status" className="msg" style={{ marginTop: 12 }}>
+            Selected destination: <strong>{destination?.name || "None"}</strong>
+            {destination?.country ? `, ${destination.country}` : ""}
           </p>
-        )}
-
-        {success && (
-          <p
-            role="status"
-            style={{
-              background: "#24483c",
-              color: "#a7f3d0",
-              padding: 15,
-              borderRadius: 12,
-            }}
-          >
-            ✅ {success}
-          </p>
-        )}
+        </div>
 
         <form onSubmit={handleCreate}>
-          <label
-            htmlFor="trip-name"
-            style={{ display: "block", marginBottom: 20 }}
-          >
-            Trip Name
+          <label htmlFor="trip-name">Trip name</label>
+          <input
+            id="trip-name"
+            value={form.name}
+            maxLength={80}
+            required
+            onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
+            placeholder={sameCampus(destination) ? "My week at KAU" : "e.g. My weekend plans"}
+            style={{ ...fieldStyle, marginBottom: 20 }}
+          />
 
-            <input
-              id="trip-name"
-              name="name"
-              type="text"
-              placeholder="e.g. Jeddah Weekend"
-              maxLength={80}
-              value={form.name}
-              onChange={handleInput}
-              style={inputStyle}
-              required
-            />
-          </label>
-
-          <label
-            htmlFor="trip-destination"
-            style={{ display: "block", marginBottom: 20 }}
-          >
-            Destination
-
-            <input
-              id="trip-destination"
-              type="text"
-              value="📍 Jeddah, Saudi Arabia"
-              style={inputStyle}
-              readOnly
-            />
-
-            <small
-              style={{
-                display: "block",
-                marginTop: 8,
-                color: "#ffb56b",
-              }}
-            >
-              Demo destination — city selection
-              will be added next.
-            </small>
-          </label>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(200px, 1fr))",
-              gap: 16,
-            }}
-          >
-            <label
-              htmlFor="trip-start"
-              style={{ display: "block" }}
-            >
-              Start Date
-
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+            <div>
+              <label htmlFor="trip-start">Start date</label>
               <input
                 id="trip-start"
-                name="startDate"
                 type="date"
-                value={form.startDate}
-                onChange={handleInput}
-                max={form.endDate || undefined}
-                style={inputStyle}
                 required
+                value={form.startDate}
+                max={form.endDate || undefined}
+                onChange={(event) => setForm((previous) => ({ ...previous, startDate: event.target.value }))}
+                style={fieldStyle}
               />
-            </label>
-
-            <label
-              htmlFor="trip-end"
-              style={{ display: "block" }}
-            >
-              End Date
-
+            </div>
+            <div>
+              <label htmlFor="trip-end">End date</label>
               <input
                 id="trip-end"
-                name="endDate"
                 type="date"
-                value={form.endDate}
-                onChange={handleInput}
-                min={form.startDate || undefined}
-                style={inputStyle}
                 required
+                value={form.endDate}
+                min={form.startDate || undefined}
+                onChange={(event) => setForm((previous) => ({ ...previous, endDate: event.target.value }))}
+                style={fieldStyle}
               />
-            </label>
+            </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={saving}
-            style={{
-              width: "100%",
-              marginTop: 28,
-              padding: 16,
-              borderRadius: 14,
-              background:
-                "linear-gradient(135deg, #ff9fc1, #ffb56b)",
-              color: "#292231",
-              fontSize: 17,
-              fontWeight: 800,
-              cursor: saving ? "wait" : "pointer",
-            }}
-          >
-            {saving
-              ? "Creating your trip..."
-              : "✦ Create My Trip"}
+          <button className="btn" type="submit" disabled={saving || !destination} style={{ marginTop: 22 }}>
+            {saving ? "Creating your trip..." : "＋ Create My Trip"}
           </button>
         </form>
       </section>
 
-      {/* Saved Trips Section */}
-      <section style={{ marginTop: 42 }}>
-        <h2
-          style={{
-            fontSize: 27,
-            marginBottom: 10,
-          }}
-        >
-          🧳 Your Saved Trips
-        </h2>
-
-        <p
-          style={{
-            color: "#b8b3ca",
-            marginBottom: 22,
-          }}
-        >
-          Your adventures, all in one place.
-        </p>
-
+      <section className="glass section" aria-labelledby="saved-trips-title">
+        <h2 id="saved-trips-title">🧳 Your Saved Trips</h2>
+        <p className="section-sub">Your adventures, all in one place.</p>
         {loading ? (
-          <p role="status">
-            Loading your trips...
-          </p>
+          <p role="status">Loading your trips...</p>
         ) : trips.length === 0 ? (
-          <div
-            style={{
-              ...panelStyle,
-              textAlign: "center",
-              padding: 40,
-            }}
-          >
-            <div style={{ fontSize: 42 }}>🗺️</div>
-
+          <div style={{ textAlign: "center", padding: 24 }}>
+            <p style={{ fontSize: 36 }}>🗺️</p>
             <h3>No trips yet!</h3>
-
-            <p style={{ color: "#b8b3ca" }}>
-              Create your first adventure above.
-            </p>
+            <p className="section-sub">Create your first adventure above.</p>
           </div>
         ) : (
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns:
-                "repeat(auto-fit, minmax(230px, 1fr))",
-              gap: 18,
-            }}
-          >
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 16 }}>
             {trips.map((trip) => (
-              <article
-                key={trip.id}
-                style={{
-                  ...panelStyle,
-                  padding: 22,
-                }}
-              >
-                <div style={{ fontSize: 29 }}>
-                  🌴
-                </div>
-
-                <h3
-                  style={{
-                    fontSize: 21,
-                    margin: "12px 0",
-                  }}
-                >
-                  {trip.name}
-                </h3>
-
-                <p
-                  style={{
-                    color: "#ffb4c9",
-                    fontSize: 14,
-                  }}
-                >
-                  📍 {trip.destination?.name}
+              <article className="glass" key={trip.id} style={{ padding: 20 }}>
+                <div style={{ fontSize: 28 }}>{sameCampus(trip.destination) ? "⛺" : "🌴"}</div>
+                <h3 style={{ margin: "10px 0" }}>{trip.name}</h3>
+                <p style={{ color: "var(--sun)", margin: "0 0 10px" }}>
+                  📍 {trip.destination?.name || "Destination"}
                 </p>
-
-                <p
-                  style={{
-                    color: "#b8b3ca",
-                    fontSize: 13,
-                    lineHeight: 1.8,
-                  }}
-                >
-                  📅 {trip.startDate}
-                  <br />
-                  to {trip.endDate}
+                <p style={{ color: "var(--muted)", lineHeight: 1.8 }}>
+                  📅 {displayDate(trip.startDate)} — {displayDate(trip.endDate)}
                 </p>
-
-                <Link
-                  to={`/trips/${trip.id}`}
-                  style={{
-                    display: "inline-block",
-                    marginTop: 14,
-                    color: "#ffb56b",
-                    fontWeight: 700,
-                  }}
-                >
+                <Link className="btn btn-ghost" to={`/trips/${trip.id}`}>
                   View Trip Details →
                 </Link>
               </article>
@@ -460,6 +295,6 @@ export default function Trips() {
           </div>
         )}
       </section>
-    </div>
+    </main>
   );
 }

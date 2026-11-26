@@ -15,6 +15,7 @@ import {
 
 import { db } from "../firebase/config";
 import { ACTIVITIES } from "../utils/activities";
+import { KAU_CAMPUS, isTentOpen } from "../utils/campusData";
 
 const TRIPS = "trips";
 const ITEMS = "tripItems";
@@ -213,7 +214,14 @@ export async function addTripItem(
     activity,
     chosenTime,
     expectedScore,
+    note = "",
   } = activityData;
+
+  // Notes belong to tripItems, not trips. Old items without a note still work.
+  if (typeof note !== "string" || note.trim().length > 140) {
+    throw new Error("Activity note must be 140 characters or fewer.");
+  }
+  const cleanNote = note.trim();
 
   if (!ACTIVITIES[activity]) {
     throw new Error("Invalid activity.");
@@ -229,6 +237,19 @@ export async function addTripItem(
     expectedScore > 100
   ) {
     throw new Error("Invalid activity score.");
+  }
+
+  // Defense in depth: a Sports Tent slot must be on campus, during opening hours.
+  if (activity === "sportsTent") {
+    const atCampus =
+      Math.abs(Number(trip.destination?.lat) - KAU_CAMPUS.lat) < 0.001 &&
+      Math.abs(Number(trip.destination?.lon) - KAU_CAMPUS.lon) < 0.001;
+    if (!atCampus) {
+      throw new Error("Sports Tent activities require a KAU Campus trip.");
+    }
+    if (!isTentOpen(chosenTime) || expectedScore <= 0) {
+      throw new Error("Choose an available campus hour with a positive score.");
+    }
   }
 
   const date = chosenTime.slice(0, 10);
@@ -267,6 +288,7 @@ export async function addTripItem(
       activity,
       chosenTime,
       expectedScore,
+      ...(cleanNote ? { note: cleanNote } : {}),
       savedAt: serverTimestamp(),
     }
   );

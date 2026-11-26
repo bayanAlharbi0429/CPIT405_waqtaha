@@ -12,6 +12,8 @@ import {
 } from "../services/tripsApi";
 
 import { ACTIVITIES } from "../utils/activities";
+import ScoreRing from "../components/ScoreRing";
+import { KAU_CAMPUS, describeSchedule } from "../utils/campusData";
 
 // Keep destination-local dates without timezone shifting.
 function formatDate(value) {
@@ -282,6 +284,12 @@ export default function TripDetails() {
             ? `, ${trip.destination.country}`
             : ""}
         </p>
+        {Math.abs(Number(trip.destination?.lat) - KAU_CAMPUS.lat) < 0.001 &&
+         Math.abs(Number(trip.destination?.lon) - KAU_CAMPUS.lon) < 0.001 && (
+          <p className="tagline" style={{ fontSize: 17 }}>
+            ⛺ Sports Tent hours: {describeSchedule()}
+          </p>
+        )}
       </header>
 
       {error && (
@@ -582,15 +590,15 @@ export default function TripDetails() {
                   🕒 {formatTime(item.chosenTime)}
                 </p>
 
-                <p
-                  style={{
-                    color: "#86efac",
-                    fontSize: 23,
-                    fontWeight: 800,
-                  }}
-                >
-                  ⭐ {Math.round(item.expectedScore)}/100
-                </p>
+                <div style={{ margin: "12px 0" }}>
+                  <ScoreRing score={Math.round(item.expectedScore)} size={76} />
+                </div>
+
+                {typeof item.note === "string" && item.note.trim() && (
+                  <p className="msg" style={{ overflowWrap: "anywhere" }}>
+                    📝 {item.note}
+                  </p>
+                )}
 
                 {removeItemId === item.id ? (
                   <div>
