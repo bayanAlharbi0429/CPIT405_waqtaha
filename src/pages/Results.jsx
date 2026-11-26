@@ -14,6 +14,8 @@ import { mockDestination } from "../mocks/mockData";
 import HourlyChart from "../components/HourlyChart";
 import TopTimes from "../components/TopTimes";
 import SaveToTrip from "../components/SaveToTrip";
+import ScoreRing from "../components/ScoreRing";
+import { KAU_CAMPUS, describeSchedule } from "../utils/campusData";
 
 // Format the destination's local date and time.
 function formatHour(value) {
@@ -57,12 +59,14 @@ export default function Results() {
 
   const userId = currentUser?.uid;
 
-  // Read selected destination and activity.
-  const destination =
-    location.state?.destination || mockDestination;
-
+  // The Sports Tent exists only on the KAU campus. Always use the shared
+  // campus location, even if an unrelated destination was passed by Explore.
   const activityKey =
     location.state?.activityKey || "running";
+
+  const destination = activityKey === "sportsTent"
+    ? KAU_CAMPUS
+    : (location.state?.destination || mockDestination);
 
   const activity = ACTIVITIES[activityKey];
 
@@ -170,8 +174,18 @@ export default function Results() {
     userId,
   ]);
 
-  // Filter results using the minimum score.
-  const filteredHours = scored.filter(
+  const isSportsTent = activityKey === "sportsTent";
+
+  // For the indoor Sports Tent, campus-closed hours are hidden from the
+  // chart and list. The scoring engine remains the source of truth.
+  const visibleHours = scored.filter(
+    (hour) =>
+      !isSportsTent ||
+      !(hour.capped && hour.reason === "Outside campus hours")
+  );
+  const hiddenCampusHours = scored.length - visibleHours.length;
+
+  const filteredHours = visibleHours.filter(
     (hour) =>
       Number.isFinite(hour.score) &&
       hour.score >= minimumScore
@@ -296,8 +310,21 @@ export default function Results() {
         {/* Results content */}
         {!loading && !error && (
           <>
-            {/* Hourly chart */}
-            <HourlyChart hours={scored} />
+            {isSportsTent && (
+              <section className="glass section" style={{ marginTop: 22 }}>
+                <h2>⛺ KAU Sports Tent</h2>
+                <p className="section-sub" style={{ marginBottom: 8 }}>
+                  Campus hours: <strong>{describeSchedule()}</strong>
+                </p>
+                <p className="section-sub" style={{ marginBottom: 0 }}>
+                  The tent is indoors. Weather scores describe the walk to the tent,
+                  not the activities inside. {hiddenCampusHours} closed hours are hidden.
+                </p>
+              </section>
+            )}
+
+            {/* Outside-campus-hours slots are hidden from the chart. */}
+            <HourlyChart hours={visibleHours} />
 
             {/* Minimum score filter */}
             <section
@@ -403,8 +430,8 @@ export default function Results() {
               </p>
             </section>
 
-            {/* Top 3 best times */}
-            <TopTimes hours={filteredHours} />
+            {/* Top 3 must never include zero-scored or closed hours. */}
+            <TopTimes hours={filteredHours.filter((hour) => hour.score > 0)} />
 
             {/* All matching hours */}
             <section style={{ marginTop: 36 }}>
@@ -484,7 +511,7 @@ export default function Results() {
                     color: "#ffccd5",
                   }}
                 >
-                  No matching hours. Try lowering
+                  No matching open hours. Try lowering
                   your minimum score.
                 </div>
               ) : (
@@ -533,20 +560,9 @@ export default function Results() {
                           {formatted.time}
                         </strong>
 
-                        <p
-                          style={{
-                            color:
-                              hour.score >= 75
-                                ? "#86efac"
-                                : hour.score >= 50
-                                ? "#fbbf24"
-                                : "#fca5a5",
-                            fontWeight: 700,
-                            margin: "12px 0 0",
-                          }}
-                        >
-                          ⭐ {Math.round(hour.score)}/100
-                        </p>
+                        <div style={{ marginTop: 14 }}>
+                          <ScoreRing score={Math.round(hour.score)} size={76} />
+                        </div>
 
                         {hour.capped && hour.reason && (
                           <p
